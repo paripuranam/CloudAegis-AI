@@ -13,9 +13,7 @@ const ConnectAWS = () => {
   const { data: benchmarkCatalog } = useFetching(api.getAwsCisBenchmarks)
   const [formData, setFormData] = useState({
     account_name: '',
-    auth_method: 'role_arn',
-    role_arn: '',
-    external_id: '',
+    auth_method: 'access_key',
     access_key_id: '',
     secret_access_key: '',
     regions: ['us-east-1'],
@@ -72,9 +70,7 @@ const ConnectAWS = () => {
       // Reset form
       setFormData({
         account_name: '',
-        auth_method: 'role_arn',
-        role_arn: '',
-        external_id: '',
+        auth_method: 'access_key',
         access_key_id: '',
         secret_access_key: '',
         regions: ['us-east-1'],
@@ -94,21 +90,21 @@ const ConnectAWS = () => {
         <div className="grid gap-8 px-8 py-8 xl:grid-cols-[1.05fr_0.95fr]">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-700">Account Onboarding</p>
-            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950">Connect AWS with role-based or key-based discovery access.</h1>
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950">Connect AWS with access key based discovery access.</h1>
             <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
               Add an AWS account, run the first inventory and governance scan, and immediately move into a scan-based
               view of security posture and cost optimization opportunities.
             </p>
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
               <div className="rounded-3xl border border-slate-200 bg-white p-5">
-                <p className="text-sm text-slate-500">Preferred Access</p>
-                <p className="mt-2 text-lg font-semibold text-slate-900">IAM Role</p>
-                <p className="mt-2 text-sm leading-6 text-slate-500">Best for production-grade cross-account discovery with centralized trust.</p>
+                <p className="text-sm text-slate-500">Connection Mode</p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">Access Keys</p>
+                <p className="mt-2 text-sm leading-6 text-slate-500">Use access key ID and secret access key to connect the AWS account directly.</p>
               </div>
               <div className="rounded-3xl border border-slate-200 bg-white p-5">
-                <p className="text-sm text-slate-500">Fallback Access</p>
-                <p className="mt-2 text-lg font-semibold text-slate-900">Access Keys</p>
-                <p className="mt-2 text-sm leading-6 text-slate-500">Useful when role assumption is not ready yet and you need to unblock discovery.</p>
+                <p className="text-sm text-slate-500">Required Credentials</p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">Key + Secret</p>
+                <p className="mt-2 text-sm leading-6 text-slate-500">A read-only IAM user is enough to start inventory, findings, and benchmark scans.</p>
               </div>
               <div className="rounded-3xl border border-slate-200 bg-white p-5">
                 <p className="text-sm text-slate-500">Immediate Outcome</p>
@@ -126,15 +122,15 @@ const ConnectAWS = () => {
             </p>
             <div className="mt-6 space-y-4">
               <div className="rounded-2xl bg-white/5 p-4">
-                <p className="text-sm font-medium text-sky-300">Role-based setup</p>
+                <p className="text-sm font-medium text-sky-300">Recommended permissions</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Use a discovery role with permissions for EC2, EBS, S3, IAM, RDS, Security Groups, Elastic IPs, and CloudWatch.
+                  Use a read-only IAM user with permissions for EC2, EBS, S3, IAM, RDS, Security Groups, Elastic IPs, and CloudWatch.
                 </p>
               </div>
               <div className="rounded-2xl bg-white/5 p-4">
-                <p className="text-sm font-medium text-sky-300">Key-based setup</p>
+                <p className="text-sm font-medium text-sky-300">Operational guidance</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Use a tightly-scoped read-only IAM user and rotate the credentials regularly until role assumption is available.
+                  Rotate the credentials regularly and replace them here when they change.
                 </p>
               </div>
             </div>
@@ -160,19 +156,6 @@ const ConnectAWS = () => {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Authentication Method</label>
-            <select
-              name="auth_method"
-              value={formData.auth_method}
-              onChange={handleInputChange}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="role_arn">IAM Role ARN</option>
-              <option value="access_key">Access Key + Secret Key</option>
-            </select>
-          </div>
-
-          <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">AWS CIS Benchmark Version</label>
             <select
               value={selectedBenchmarkVersion}
@@ -193,68 +176,34 @@ const ConnectAWS = () => {
             </p>
           </div>
 
-          {formData.auth_method === 'role_arn' ? (
-            <>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">IAM Role ARN</label>
-                <input
-                  type="text"
-                  name="role_arn"
-                  value={formData.role_arn}
-                  onChange={handleInputChange}
-                  placeholder="arn:aws:iam::123456789012:role/CloudAegisRole"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-primary-500"
-                  required={formData.auth_method === 'role_arn'}
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  Use IAM role with permissions for EC2, S3, IAM, and CloudWatch
-                </p>
-              </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Access Key ID</label>
+            <input
+              type="text"
+              name="access_key_id"
+              value={formData.access_key_id}
+              onChange={handleInputChange}
+              placeholder="AKIA..."
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-primary-500"
+              required
+            />
+          </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">External ID (Optional)</label>
-                <input
-                  type="text"
-                  name="external_id"
-                  value={formData.external_id}
-                  onChange={handleInputChange}
-                  placeholder="For additional security"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">Access Key ID</label>
-                <input
-                  type="text"
-                  name="access_key_id"
-                  value={formData.access_key_id}
-                  onChange={handleInputChange}
-                  placeholder="AKIA..."
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-primary-500"
-                  required={formData.auth_method === 'access_key'}
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">Secret Access Key</label>
-                <input
-                  type="password"
-                  name="secret_access_key"
-                  value={formData.secret_access_key}
-                  onChange={handleInputChange}
-                  placeholder="AWS secret access key"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-primary-500"
-                  required={formData.auth_method === 'access_key'}
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  Prefer an IAM user or short-lived credentials limited to read-only discovery permissions.
-                </p>
-              </div>
-            </>
-          )}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Secret Access Key</label>
+            <input
+              type="password"
+              name="secret_access_key"
+              value={formData.secret_access_key}
+              onChange={handleInputChange}
+              placeholder="AWS secret access key"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-primary-500"
+              required
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Prefer an IAM user or short-lived credentials limited to read-only discovery permissions.
+            </p>
+          </div>
 
           {/* Regions */}
           <div>
@@ -311,25 +260,12 @@ const ConnectAWS = () => {
         <div className="rounded-3xl border border-sky-200 bg-sky-50 p-6">
         <h3 className="mb-3 text-lg font-semibold text-sky-950">Setup Instructions</h3>
         <ol className="space-y-3 text-sm leading-6 text-sky-900">
-          {formData.auth_method === 'role_arn' ? (
-            <>
-              <li>1. Create an IAM role in your AWS account with these permissions: EC2ReadOnly, S3ReadOnly, IAMReadOnly, CloudWatchReadOnly</li>
-              <li>2. Set trust policy to allow the CloudAegis AI deployment account to assume this role</li>
-              <li>3. Copy the role ARN and paste it above</li>
-              <li>4. Choose the AWS CIS benchmark version for the security scan</li>
-              <li>5. Select regions to scan</li>
-              <li>6. Click Connect Account</li>
-            </>
-          ) : (
-            <>
-              <li>1. Create an IAM user or access key pair with read-only permissions for EC2, S3, IAM, and CloudWatch</li>
-              <li>2. Paste the access key ID and secret access key above</li>
-              <li>3. Choose the AWS CIS benchmark version for the security scan</li>
-              <li>4. Select regions to scan</li>
-              <li>5. Click Connect Account</li>
-              <li>6. Rotate the key regularly and replace it here if it changes</li>
-            </>
-          )}
+          <li>1. Create an IAM user or access key pair with read-only permissions for EC2, S3, IAM, and CloudWatch</li>
+          <li>2. Paste the access key ID and secret access key above</li>
+          <li>3. Choose the AWS CIS benchmark version for the security scan</li>
+          <li>4. Select regions to scan</li>
+          <li>5. Click Connect Account</li>
+          <li>6. Rotate the key regularly and replace it here if it changes</li>
         </ol>
         </div>
       </div>

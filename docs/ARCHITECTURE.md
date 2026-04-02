@@ -53,12 +53,6 @@ The UI no longer has to depend on a constantly shifting live findings list. Each
 
 Responsible for authenticated AWS access and resource discovery.
 
-**Development Mode (MVP):**
-- Automatic mock data generation when `API_ENV=development`
-- Returns realistic test EC2, S3, security group, and IAM policy data
-- Allows full UI/decision engine testing without AWS credentials
-- Seamless transition to real AWS in production
-
 **Current Coverage:**
 - EC2 instances
 - EBS volumes
@@ -70,9 +64,9 @@ Responsible for authenticated AWS access and resource discovery.
 - CloudWatch metrics
 
 **Authentication Options:**
-- `role_arn` with STS role assumption
-- `external_id` for cross-account access
-- Mock session in development mode
+- current UI onboarding uses `access_key`
+- backend still supports `role_arn` for future/admin integrations
+- credentials are used to discover the real AWS account ID via STS
 
 ### `scanner.py`
 
@@ -154,7 +148,7 @@ Controlled execution with safeguards:
 ### Connection Flow
 
 1. User connects an AWS account through `POST /connect-aws`
-2. Backend validates credentials and discovers the real AWS account ID
+2. Backend validates access key credentials and discovers the real AWS account ID
 3. Account is stored in `cloud_accounts`
 4. Frontend sets it as the active account
 5. Initial scan is triggered from the UI
@@ -197,8 +191,8 @@ src/
 │   ├── FixPreviewModal.jsx
 │   └── RiskBadge.jsx
 ├── hooks/
-│   ├── useFetching.js
-│   └── useStore.js
+│   ├── useFetching.jsx (with JSX pragma for proper Babel parsing)
+│   └── useStore.jsx
 ├── pages/
 │   ├── Dashboard.jsx
 │   ├── Findings.jsx
@@ -211,12 +205,13 @@ src/
 ```
 
 Current UI behavior:
-- shared app shell with sidebar and top bar
+- shared app shell with collapsible sidebar and top bar
 - persistent selected account
 - persistent selected scan
 - scan history selection
 - scan-over-scan score deltas
 - review modal with AI recommendation and remediation context
+- streamlined left navigation with icon-first items and reduced sidebar copy
 
 ## Database Model
 
@@ -226,8 +221,8 @@ Stores:
 - AWS account identity
 - account display name
 - auth method
-- role ARN / external ID
 - access key credentials when used
+- role ARN / external ID when used programmatically
 - regions
 - last scan timestamp
 

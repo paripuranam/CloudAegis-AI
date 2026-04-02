@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback } from 'react'
+import React, { useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowLongRightIcon,
@@ -39,45 +39,83 @@ const Dashboard = () => {
   const currentAccount = useAppStore((state) => state.currentAccount)
   const selectedScanId = useAppStore((state) => state.selectedScanId)
   const setSelectedScanId = useAppStore((state) => state.setSelectedScanId)
+  const scanHistoryCache = useAppStore((state) => state.scanHistoryCache)
+  const setScanHistoryCache = useAppStore((state) => state.setScanHistoryCache)
+  const scanDetailCache = useAppStore((state) => state.scanDetailCache)
+  const setScanDetailCache = useAppStore((state) => state.setScanDetailCache)
+  const inventoryCache = useAppStore((state) => state.inventoryCache)
+  const setInventoryCache = useAppStore((state) => state.setInventoryCache)
 
   // Use memoized fetch functions to prevent unnecessary refetches
   const fetchAccounts = useCallback(api.getConnectedAccounts, [])
   const fetchInventory = useCallback(() => 
-    currentAccount?.account_id ? api.getAccountInventory(currentAccount.account_id) : Promise.resolve({ data: null }),
+    currentAccount?.account_id ? api.getAccountInventory(currentAccount.account_id) : Promise.resolve({ data: { summary: {} } }),
     [currentAccount?.account_id]
   )
   const fetchScanHistory = useCallback(() =>
     currentAccount?.account_id ? api.getScanHistory(currentAccount.account_id) : Promise.resolve({ data: [] }),
     [currentAccount?.account_id]
   )
-  const fetchSelectedScan = useCallback(() =>
-    selectedScanId ? api.getScanDetail(selectedScanId) : Promise.resolve({ data: null }),
-    [selectedScanId]
-  )
+  const fetchSelectedScan = useCallback(() => {
+    if (!selectedScanId) {
+      return Promise.resolve({ data: null })
+    }
+    return api.getScanDetail(selectedScanId)
+  }, [selectedScanId])
 
   const { data: accounts } = useFetching(fetchAccounts, [])
   const { data: inventory, refetch: refetchInventory } = useFetching(fetchInventory, [currentAccount?.account_id])
   const { data: scanHistory, refetch: refetchScanHistory } = useFetching(fetchScanHistory, [currentAccount?.account_id])
-  const { data: selectedScan, refetch: refetchSelectedScan } = useFetching(fetchSelectedScan, [selectedScanId])
+  const { data: selectedScan, refetch: refetchSelectedScan, loading: selectedScanLoading } = useFetching(fetchSelectedScan, [selectedScanId])
 
   useEffect(() => {
-    if (!scanHistory?.length) {
+    if (currentAccount?.account_id && inventory) {
+      setInventoryCache(currentAccount.account_id, inventory)
+    }
+  }, [currentAccount?.account_id, inventory, setInventoryCache])
+
+  useEffect(() => {
+    if (currentAccount?.account_id && scanHistory?.length) {
+      setScanHistoryCache(currentAccount.account_id, scanHistory)
+    }
+  }, [currentAccount?.account_id, scanHistory, setScanHistoryCache])
+
+  useEffect(() => {
+    if (selectedScanId && selectedScan) {
+      setScanDetailCache(selectedScanId, selectedScan)
+    }
+  }, [selectedScanId, selectedScan, setScanDetailCache])
+
+  const effectiveInventory = inventory || inventoryCache[currentAccount?.account_id] || { summary: {} }
+  const effectiveScanHistory = scanHistory?.length ? scanHistory : (scanHistoryCache[currentAccount?.account_id] || [])
+  const effectiveSelectedScan = selectedScan || (selectedScanId ? scanDetailCache[selectedScanId] : null)
+
+  useEffect(() => {
+    if (!effectiveScanHistory?.length) {
       if (selectedScanId) {
         setSelectedScanId(null)
       }
       return
     }
 
-    const scanExists = scanHistory.some((scan) => scan.id === selectedScanId)
-    if (!scanExists) {
-      setSelectedScanId(scanHistory[0].id)
+    // If no scan is selected, select the first one
+    if (!selectedScanId) {
+      setSelectedScanId(effectiveScanHistory[0].id)
+      return
     }
-  }, [scanHistory, selectedScanId, setSelectedScanId])
 
-  const activeHistoryItem = scanHistory?.find((scan) => scan.id === selectedScanId) || scanHistory?.[0] || null
-  const activeSummary = activeHistoryItem?.summary || selectedScan?.summary || {}
-  const activeSecurityFindings = selectedScan?.security_findings || []
-  const activeCostFindings = selectedScan?.cost_findings || []
+    // If selected scan still exists, keep it
+    const scanExists = effectiveScanHistory.some((scan) => scan.id === selectedScanId)
+    if (!scanExists) {
+      // If selected scan no longer exists (e.g., account changed), select first scan
+      setSelectedScanId(effectiveScanHistory[0].id)
+    }
+  }, [effectiveScanHistory, selectedScanId, setSelectedScanId])
+
+  const activeHistoryItem = effectiveScanHistory.find((scan) => scan.id === selectedScanId) || effectiveScanHistory[0] || null
+  const activeSummary = effectiveSelectedScan?.summary || activeHistoryItem?.summary || {}
+  const activeSecurityFindings = effectiveSelectedScan?.security_findings || []
+  const activeCostFindings = effectiveSelectedScan?.cost_findings || []
 
   const postureCards = [
     {
@@ -131,13 +169,13 @@ const Dashboard = () => {
   const overallScoreWidth = Math.max(4, Math.min(100, activeHistoryItem?.overall_score || 0))
 
   const estateCoverage = [
-    ['EC2 Instances', inventory?.summary?.ec2_instances ?? 0],
-    ['EBS Volumes', inventory?.summary?.ebs_volumes ?? 0],
-    ['S3 Buckets', inventory?.summary?.s3_buckets ?? 0],
-    ['RDS Instances', inventory?.summary?.rds_instances ?? 0],
-    ['IAM Policies', inventory?.summary?.iam_policies ?? 0],
-    ['Security Groups', inventory?.summary?.security_groups ?? 0],
-    ['Elastic IPs', inventory?.summary?.elastic_ips ?? 0],
+    ['EC2 Instances', effectiveInventory?.summary?.ec2_instances ?? 0],
+    ['EBS Volumes', effectiveInventory?.summary?.ebs_volumes ?? 0],
+    ['S3 Buckets', effectiveInventory?.summary?.s3_buckets ?? 0],
+    ['RDS Instances', effectiveInventory?.summary?.rds_instances ?? 0],
+    ['IAM Policies', effectiveInventory?.summary?.iam_policies ?? 0],
+    ['Security Groups', effectiveInventory?.summary?.security_groups ?? 0],
+    ['Elastic IPs', effectiveInventory?.summary?.elastic_ips ?? 0],
   ]
 
   const latestAccountCount = accounts?.length || 0
@@ -168,7 +206,7 @@ const Dashboard = () => {
                   {activeHistoryItem?.completed_at ? new Date(activeHistoryItem.completed_at).toLocaleString() : 'No completed scan'}
                 </p>
                 <p className="mt-1 text-sm text-slate-400">
-                  {scanHistory?.length ? `${scanHistory.length} snapshots recorded` : 'Run a scan to start tracking posture'}
+                  {effectiveScanHistory?.length ? `${effectiveScanHistory.length} snapshots recorded` : 'Run a scan to start tracking posture'}
                 </p>
                 <p className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-500">
                   AWS CIS {activeSummary.cis_benchmark_version || '3.0.0'}
@@ -236,7 +274,7 @@ const Dashboard = () => {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-3">
+      <section className="grid gap-5 xl:grid-cols-3">
         {postureCards.map((card) => {
           const Icon = card.icon
           return (
@@ -258,9 +296,9 @@ const Dashboard = () => {
         })}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-4">
+      <section className="grid gap-5 md:grid-cols-2 2xl:grid-cols-4">
         {operationalCards.map((card) => (
-          <div key={card.label} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div key={card.label} className="min-h-[168px] rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-sm text-slate-500">{card.label}</p>
             <p className="mt-3 text-4xl font-semibold text-slate-950">{card.value}</p>
             <p className="mt-2 text-sm text-slate-500">{card.note}</p>
@@ -268,13 +306,15 @@ const Dashboard = () => {
         ))}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[0.74fr_1.26fr]">
-        <div className="space-y-6">
+      <section className="grid gap-6 2xl:grid-cols-[360px,minmax(0,1fr)]">
+        <aside className="space-y-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-slate-900">Scan Timeline</h2>
-                <p className="mt-1 text-sm text-slate-500">Select a scan to switch the whole dashboard context.</p>
+                <p className="mt-1 max-w-[18rem] text-sm leading-6 text-slate-500">
+                  Select a scan to switch the dashboard context without losing historical continuity.
+                </p>
               </div>
               <button
                 onClick={() => {
@@ -288,7 +328,7 @@ const Dashboard = () => {
             </div>
 
             <div className="mt-6 space-y-3">
-              {scanHistory?.length ? scanHistory.map((scan, index) => {
+              {effectiveScanHistory?.length ? effectiveScanHistory.map((scan, index) => {
                 const selected = scan.id === activeHistoryItem?.id
                 return (
                   <button
@@ -302,13 +342,13 @@ const Dashboard = () => {
                     }`}
                   >
                     <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">Scan #{scanHistory.length - index}</p>
-                        <p className="mt-1 text-sm text-slate-500">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900">Scan #{effectiveScanHistory.length - index}</p>
+                        <p className="mt-1 text-sm leading-6 text-slate-500">
                           {scan.completed_at ? new Date(scan.completed_at).toLocaleString() : 'In progress'}
                         </p>
                       </div>
-                      <div className="text-right text-sm">
+                      <div className="shrink-0 text-right text-sm">
                         <p className={`font-semibold ${scoreTone(scan.overall_score || 0)}`}>
                           {(scan.overall_score || 0).toFixed(1)}
                         </p>
@@ -318,16 +358,16 @@ const Dashboard = () => {
                       </div>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-3 gap-3">
-                      <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      <div className="rounded-2xl bg-slate-50 px-3 py-3 text-center">
                         <p className="text-xs uppercase tracking-wide text-slate-400">Security</p>
                         <p className="mt-1 font-semibold text-slate-900">{(scan.security_score || 0).toFixed(1)}</p>
                       </div>
-                      <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                      <div className="rounded-2xl bg-slate-50 px-3 py-3 text-center">
                         <p className="text-xs uppercase tracking-wide text-slate-400">Cost</p>
                         <p className="mt-1 font-semibold text-slate-900">{(scan.cost_score || 0).toFixed(1)}</p>
                       </div>
-                      <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                      <div className="rounded-2xl bg-slate-50 px-3 py-3 text-center">
                         <p className="text-xs uppercase tracking-wide text-slate-400">Findings</p>
                         <p className="mt-1 font-semibold text-slate-900">
                           {(scan.summary?.security_findings_count || 0) + (scan.summary?.cost_findings_count || 0)}
@@ -370,10 +410,10 @@ const Dashboard = () => {
               ))}
             </div>
           </div>
-        </div>
+        </aside>
 
-        <div className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="min-w-0 space-y-6">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr),minmax(320px,0.95fr)]">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
@@ -385,7 +425,7 @@ const Dashboard = () => {
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 {estateCoverage.map(([label, value]) => (
-                  <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div key={label} className="min-h-[126px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <p className="text-sm text-slate-500">{label}</p>
                     <p className="mt-2 text-3xl font-semibold text-slate-950">{value}</p>
                   </div>
@@ -422,7 +462,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 xl:grid-cols-2">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-slate-900">Top Security Risks</h2>
@@ -435,11 +475,11 @@ const Dashboard = () => {
                 {activeSecurityFindings.length ? activeSecurityFindings.slice(0, 6).map((finding) => (
                   <div key={finding.id} className="rounded-2xl border border-slate-200 p-4">
                     <div className="flex items-start justify-between gap-4">
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-medium text-slate-900">{finding.title}</p>
-                        <p className="mt-1 text-sm text-slate-500">{finding.resource_id}</p>
+                        <p className="mt-1 truncate text-sm text-slate-500">{finding.resource_id}</p>
                       </div>
-                      <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-700">
+                      <span className="shrink-0 rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-700">
                         {finding.security_risk}
                       </span>
                     </div>
@@ -462,11 +502,11 @@ const Dashboard = () => {
                 {activeCostFindings.length ? activeCostFindings.slice(0, 6).map((finding) => (
                   <div key={finding.id} className="rounded-2xl border border-slate-200 p-4">
                     <div className="flex items-start justify-between gap-4">
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-medium text-slate-900">{finding.title}</p>
-                        <p className="mt-1 text-sm text-slate-500">{finding.resource_id}</p>
+                        <p className="mt-1 truncate text-sm text-slate-500">{finding.resource_id}</p>
                       </div>
-                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                      <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
                         {formatCurrency(finding.potential_monthly_savings)}/mo
                       </span>
                     </div>
@@ -516,7 +556,7 @@ const Dashboard = () => {
                   <ClockIcon className="h-4 w-4" />
                   Scan Cadence
                 </div>
-                <p className="mt-3 text-3xl font-semibold text-slate-950">{scanHistory?.length || 0}</p>
+                <p className="mt-3 text-3xl font-semibold text-slate-950">{effectiveScanHistory?.length || 0}</p>
                 <p className="mt-2 text-sm text-slate-500">
                   Historical scans retained so teams can prove improvement over time.
                 </p>

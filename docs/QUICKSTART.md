@@ -23,22 +23,9 @@ docker-compose up -d --build
 
 **Wait ~15 seconds** for all services to fully start, then reload the frontend.
 
-## Development Mode (Default)
+## Development Mode
 
-CloudAegis AI ships in **development mode** with mock AWS data:
-
-- ✅ Full UI functionality
-- ✅ Security scanning with mock resources
-- ✅ Cost analysis working
-- ✅ Decision engine producing recommendations
-- ✅ Remediation planning & execution
-- ❌ No real AWS account required
-
-**Perfect for:**
-- Evaluating the product
-- Testing workflows
-- Understanding decision logic
-- Validating remediation approach
+CloudAegis AI can be run locally for development, but the current product workflow is centered on connecting a real AWS account and capturing real scan snapshots.
 
 ## Important Environment Variables
 
@@ -59,8 +46,8 @@ CloudAegis AI ships in **development mode** with mock AWS data:
 
 | Feature | Development | Production |
 |---------|-------------|-----------|
-| Mock AWS Data | ✅ Yes | ❌ No |
-| Real AWS Scans | ⚠️ Optional (with credentials) | ✅ Required |
+| Mock AWS Data | ⚠️ Optional / deployment-controlled | ❌ No |
+| Real AWS Scans | ✅ Recommended | ✅ Required |
 | Authentication | ⚠️ Basic | ✅ Full |
 | Logging | 📝 Verbose | 📝 Standard |
 
@@ -75,9 +62,9 @@ To connect a real AWS account in production:
 API_ENV: production
 ```
 
-### 2. Create IAM Role
+### 2. Create IAM User / Access Keys
 
-Create a CloudAegis AI-specific IAM role with read-only permissions:
+Create a CloudAegis AI-specific IAM user with read-only permissions:
 
 ```json
 {
@@ -100,32 +87,19 @@ Create a CloudAegis AI-specific IAM role with read-only permissions:
 }
 ```
 
-### 3. Configure Trust Policy
+### 3. Create Access Key Pair
 
-Allow CloudAegis AI account to assume the role:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": "arn:aws:iam::CLOUDAEGIS_ACCOUNT_ID:root"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-```
+Generate an AWS access key ID and secret access key for that IAM user.
 
 ### 4. Connect via UI
 
 1. Go to "Connect AWS" page
 2. Enter:
    - Account Name: `Production`
-   - IAM Role ARN: `arn:aws:iam::TARGET_ACCOUNT:role/CloudAegis`
+   - Access Key ID: `AKIA...`
+   - Secret Access Key: `...`
    - Regions: `us-east-1,us-west-2` (or your regions)
+   - AWS CIS Benchmark Version: `3.0.0` or another supported version
 3. Click "Connect Account"
 
 ## First Scan Workflow
@@ -144,13 +118,10 @@ Allow CloudAegis AI account to assume the role:
 
 ### "Failed to connect AWS account" Error
 
-**In Development Mode:**
-- This uses mock credentials, should succeed automatically
-
-**In Production Mode:**
-- Check IAM role ARN format
-- Verify trust policy allows current account
-- Check role has read permissions
+Check:
+- access key ID / secret access key are valid
+- IAM user has read permissions
+- backend logs for AWS auth errors
 
 ### "Connection refused" to Backend
 
@@ -180,7 +151,7 @@ docker-compose logs postgres
 # Should be: postgresql://cloudaegis:cloudaegis@postgres:5432/cloudaegis_db
 ```
 
-## Adding AWS CIS Benchmark Support
+## AWS CIS Benchmark Support
 
 CloudAegis AI supports AWS CIS Foundations Benchmark in scans:
 

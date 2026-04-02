@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../hooks/useStore'
 import { useFetching } from '../hooks/useFetching'
@@ -12,7 +12,6 @@ import {
   CogIcon,
   DocumentTextIcon,
   HomeIcon,
-  ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
 
 const DEFAULT_MOCK_ACCOUNT_ID = '123456789012'
@@ -20,6 +19,7 @@ const DEFAULT_MOCK_ACCOUNT_ID = '123456789012'
 const Layout = ({ children }) => {
   const location = useLocation()
   const navigate = useNavigate()
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const currentAccount = useAppStore((state) => state.currentAccount)
   const setCurrentAccount = useAppStore((state) => state.setCurrentAccount)
   const { data: accounts, loading: accountsLoading, refetch: refetchAccounts } = useFetching(api.getConnectedAccounts)
@@ -63,27 +63,36 @@ const Layout = ({ children }) => {
   ]
 
   const currentSection = navItems.find((item) => item.path === location.pathname) || navItems[0]
+  const sidebarWidthClass = sidebarCollapsed ? 'lg:w-24' : 'lg:w-[296px]'
+  const sidebarPaddingClass = sidebarCollapsed ? 'lg:pl-24' : 'lg:pl-[296px]'
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.08),_transparent_32%),linear-gradient(180deg,_#f8fbff_0%,_#eef3f8_100%)] text-slate-900">
-      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:block lg:w-80">
-        <div className="flex h-full flex-col border-r border-slate-200/80 bg-slate-950 text-white">
-          <div className="border-b border-white/10 px-8 py-8">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/20 text-sky-300">
-                <ShieldCheckIcon className="h-7 w-7" />
+      <div className={`hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:block ${sidebarWidthClass}`}>
+        <div className="flex h-full flex-col border-r border-slate-200/80 bg-slate-950 text-white transition-all duration-300">
+          <div className={`border-b border-white/10 ${sidebarCollapsed ? 'px-4 py-5' : 'px-6 py-6'}`}>
+            {sidebarCollapsed ? (
+              <div className="flex justify-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] shadow-[0_14px_30px_rgba(2,6,23,0.28)] ring-1 ring-white/5">
+                  <img
+                    src="/CloudAegis_ai-logo.png"
+                    alt="CloudAegis AI logo"
+                    className="h-9 w-9 object-contain"
+                  />
+                </div>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-sky-300">CloudAegis AI</p>
-                <h1 className="mt-1 text-2xl font-semibold">Governance Control Plane</h1>
+            ) : (
+              <div className="flex items-center justify-start">
+                <img
+                  src="/CloudAegis_ai-logo.png"
+                  alt="CloudAegis AI logo"
+                  className="h-auto w-full max-w-[210px] object-contain"
+                />
               </div>
-            </div>
-            <p className="mt-5 text-sm leading-6 text-slate-300">
-              Security, cost optimization, and safe remediation in a single operating surface for AWS accounts.
-            </p>
+            )}
           </div>
 
-          <nav className="flex-1 space-y-2 px-5 py-6">
+          <nav className={`flex-1 ${sidebarCollapsed ? 'px-3 py-5 space-y-2' : 'px-4 py-6 space-y-1.5'}`}>
             {navItems.map((item) => {
               const Icon = item.icon
               const active = location.pathname === item.path
@@ -92,38 +101,52 @@ const Layout = ({ children }) => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`block rounded-2xl border px-4 py-4 transition ${
+                  title={sidebarCollapsed ? item.label : undefined}
+                  className={`block rounded-2xl border transition ${
                     active
                       ? 'border-sky-400/30 bg-sky-500/15 text-white'
                       : 'border-transparent bg-transparent text-slate-300 hover:border-white/10 hover:bg-white/5'
-                  }`}
+                  } ${sidebarCollapsed ? 'px-3 py-3' : 'px-4 py-3.5'}`}
                 >
-                  <div className="flex items-start gap-3">
-                    <Icon className="mt-0.5 h-5 w-5" />
-                    <div>
-                      <p className="text-sm font-semibold">{item.label}</p>
-                      <p className="mt-1 text-xs leading-5 text-slate-400">{item.description}</p>
-                    </div>
+                  <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3.5'}`}>
+                    <span className={`flex shrink-0 items-center justify-center ${sidebarCollapsed ? 'h-5 w-5' : 'h-9 w-9'}`}>
+                      <Icon className="h-5 w-5 shrink-0" />
+                    </span>
+                    {!sidebarCollapsed ? <p className="text-sm font-semibold tracking-[0.01em]">{item.label}</p> : null}
                   </div>
                 </Link>
               )
             })}
           </nav>
 
-          <div className="border-t border-white/10 px-6 py-5">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Selected Account</p>
-              <p className="mt-2 text-sm font-semibold text-white">{currentAccount?.account_name || 'No account selected'}</p>
-              <p className="mt-1 text-xs text-slate-400">{currentAccount?.account_id || 'Connect AWS to begin'}</p>
+          <div className={`border-t border-white/10 ${sidebarCollapsed ? 'px-3 py-4' : 'px-4 py-5'}`}>
+            <div className={`rounded-2xl border border-white/10 bg-white/5 ${sidebarCollapsed ? 'p-3 text-center' : 'p-4.5'}`}>
+              <p className={`text-[11px] uppercase tracking-[0.24em] text-slate-400 ${sidebarCollapsed ? 'sr-only' : ''}`}>
+                Selected Account
+              </p>
+              <p className={`font-semibold text-white ${sidebarCollapsed ? 'truncate text-xs' : 'mt-2 truncate text-sm'}`}>
+                {currentAccount?.account_name || 'No account'}
+              </p>
+              {!sidebarCollapsed ? (
+                <p className="mt-1 truncate text-xs text-slate-400">{currentAccount?.account_id || 'Connect AWS to begin'}</p>
+              ) : null}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="lg:pl-80">
+      <div className={sidebarPaddingClass}>
         <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 backdrop-blur-xl">
           <div className="flex flex-col gap-4 px-5 py-4 sm:px-8 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed((current) => !current)}
+                className="hidden h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 lg:inline-flex"
+                aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                <Bars3Icon className="h-5 w-5" />
+              </button>
               <button
                 type="button"
                 onClick={() => navigate(-1)}

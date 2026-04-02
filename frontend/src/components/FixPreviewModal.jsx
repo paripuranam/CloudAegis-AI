@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react'
-import { XMarkIcon } from '@heroicons/react/24/outline'
+import {
+  BanknotesIcon,
+  ExclamationTriangleIcon,
+  ShieldExclamationIcon,
+  SparklesIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline'
 import RiskBadge from './RiskBadge'
 import * as api from '../services/api'
 import toast from 'react-hot-toast'
@@ -74,6 +80,49 @@ const FixPreviewModal = ({ finding, isOpen, onClose, onApprove }) => {
     toast.success('Terraform exported!')
   }
 
+  const metricCards = [
+    {
+      label: 'Security Risk',
+      tooltip: 'How severe the security exposure is for this finding.',
+      icon: ShieldExclamationIcon,
+      iconClassName: 'text-blue-500',
+      cardClassName: 'bg-blue-50',
+      content: <RiskBadge level={decision?.security_risk || detailFinding.security_risk || 'medium'} />,
+    },
+    {
+      label: 'Cost Impact',
+      tooltip: 'Estimated monthly savings or financial impact related to this finding.',
+      icon: BanknotesIcon,
+      iconClassName: 'text-emerald-500',
+      cardClassName: 'bg-green-50',
+      content: (
+        <p className="text-xl font-bold text-success-600">
+          ${decision?.potential_savings || detailFinding.potential_monthly_savings || 0}/mo
+        </p>
+      ),
+    },
+    {
+      label: 'Stability Risk',
+      tooltip: 'Estimated risk of breakage or disruption if the recommendation is applied.',
+      icon: ExclamationTriangleIcon,
+      iconClassName: 'text-orange-500',
+      cardClassName: 'bg-orange-50',
+      content: <RiskBadge level={decision?.stability_risk || 'medium'} />,
+    },
+    {
+      label: 'AI Confidence',
+      tooltip: 'How confident the analysis engine is in the recommended action and reasoning.',
+      icon: SparklesIcon,
+      iconClassName: 'text-slate-500',
+      cardClassName: 'bg-slate-50',
+      content: (
+        <p className="text-xl font-bold text-slate-900">
+          {decision?.confidence_score ? `${Math.round(decision.confidence_score * 100)}%` : 'N/A'}
+        </p>
+      ),
+    },
+  ]
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -103,27 +152,26 @@ const FixPreviewModal = ({ finding, isOpen, onClose, onApprove }) => {
                 ) : null}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-1">Security Risk</p>
-                  <RiskBadge level={decision?.security_risk || detailFinding.security_risk || 'medium'} />
-                </div>
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-1">Cost Impact</p>
-                  <p className="text-xl font-bold text-success-600">
-                    ${decision?.potential_savings || detailFinding.potential_monthly_savings || 0}/mo
-                  </p>
-                </div>
-                <div className="bg-orange-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-1">Stability Risk</p>
-                  <RiskBadge level={decision?.stability_risk || 'medium'} />
-                </div>
-                <div className="bg-slate-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-1">AI Confidence</p>
-                  <p className="text-xl font-bold text-slate-900">
-                    {decision?.confidence_score ? `${Math.round(decision.confidence_score * 100)}%` : 'N/A'}
-                  </p>
-                </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                {metricCards.map((card) => {
+                  const Icon = card.icon
+                  return (
+                    <div
+                      key={card.label}
+                      className={`group relative rounded-lg p-4 ${card.cardClassName}`}
+                    >
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <p className="text-sm text-gray-600">{card.label}</p>
+                        <Icon className={`h-5 w-5 shrink-0 ${card.iconClassName}`} />
+                      </div>
+                      {card.content}
+
+                      <div className="pointer-events-none absolute -top-2 left-1/2 z-10 hidden w-56 -translate-x-1/2 -translate-y-full rounded-lg bg-slate-950 px-3 py-2 text-xs leading-5 text-white shadow-xl group-hover:block">
+                        {card.tooltip}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
 
               <div>

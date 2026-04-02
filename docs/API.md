@@ -7,29 +7,28 @@
 ## Overview
 
 CloudAegis AI exposes a REST API for:
-- Connecting AWS accounts (role-based STS assumption)
+- Connecting AWS accounts
 - Running security & cost scans
 - Retrieving scan history with timestamped snapshots
 - Accessing security and cost findings
 - Managing remediation decisions and executions
 - Reading audit logs for compliance
 
-**Development Mode:**
-- Mock AWS data is returned in development environment
-- Transitioning to production requires real AWS credentials
+Current frontend onboarding is access-key based. The backend still accepts both `access_key` and `role_arn` auth models.
 
 ## AWS Account Management
 
 ### `POST /connect-aws`
 
-Connect an AWS account via IAM role assumption.
+Connect an AWS account.
 
 **Request:**
 ```json
 {
   "account_name": "Production",
-  "role_arn": "arn:aws:iam::123456789012:role/CloudAegisRole",
-  "external_id": "optional-external-id",
+  "auth_method": "access_key",
+  "access_key_id": "AKIA...",
+  "secret_access_key": "secret",
   "regions": ["us-east-1", "us-west-2"]
 }
 ```
@@ -47,14 +46,14 @@ Connect an AWS account via IAM role assumption.
 **Response (Error):**
 ```json
 {
-  "detail": "Failed to assume role: ..."
+  "detail": "The security token included in the request is invalid"
 }
 ```
 
 **Notes:**
-- In development mode, mock credentials are used
-- In production mode, real STS role assumption occurs
-- Account ID is extracted from the role ARN
+- The current UI sends `auth_method: access_key`
+- The backend can still accept `role_arn` payloads when used programmatically
+- Account ID is discovered from AWS STS using the supplied credentials
 - Duplicate accounts are updated, not created again
 
 ### `GET /accounts`
@@ -68,7 +67,7 @@ List all connected AWS accounts.
     "id": "uuid",
     "account_id": "123456789012",
     "account_name": "Production",
-    "role_arn": "arn:aws:iam::123456789012:role/CloudAegis",
+    "auth_method": "access_key",
     "regions": ["us-east-1", "us-west-2"],
     "is_active": true,
     "created_at": "2026-04-02T10:00:00Z",
@@ -140,7 +139,8 @@ Start a new security and/or cost scan.
   "account_id": "123456789012",
   "regions": ["us-east-1"],
   "include_security": true,
-  "include_cost": true
+  "include_cost": true,
+  "cis_benchmark_version": "3.0.0"
 }
 ```
 

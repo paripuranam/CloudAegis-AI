@@ -23,13 +23,7 @@ docker-compose up -d --build
 ```
 
 ### Development Mode
-CloudAegis AI runs in development mode by default with **mock AWS data**. This allows you to:
-- Test the UI without AWS credentials
-- Evaluate security scanning logic
-- Review decision engine output
-- Test remediation workflows
-
-To connect real AWS accounts in development, update `API_ENV` to `production` in docker-compose.yml and provide valid AWS credentials.
+The current product flow is centered on connecting real AWS accounts and scanning them with explicit credentials. The frontend onboarding flow is intentionally simplified to **Access Key ID + Secret Access Key** so account connection is direct and predictable.
 
 ## 🎯 Core Vision
 
@@ -66,7 +60,7 @@ CloudAegis AI combines three dimensions of cloud governance:
 
 ```
 /services/
-├── aws_connector.py          # AWS STS role assumption with development mode support
+├── aws_connector.py          # AWS discovery client for access-key and role-based auth
 ├── scanner.py                # Security scanning (3x AWS CIS checks)
 ├── cost_analyzer.py          # Cost analysis (4x optimization patterns)
 ├── decision_engine.py        # CORE: Security (40%) + Cost (35%) + Stability (25%)
@@ -91,7 +85,7 @@ CloudAegis AI combines three dimensions of cloud governance:
 **Pages:**
 - **Dashboard** - At-a-glance posture, scan timeline, service coverage
 - **Findings** - Unified security + cost findings view with filtering
-- **ConnectAWS** - IAM role ARN setup with multi-region support
+- **ConnectAWS** - Access key + secret key onboarding with benchmark-aware initial scan
 - **AuditLogs** - Compliance audit trail with search/export
 
 **Key Components:**
@@ -105,6 +99,8 @@ CloudAegis AI combines three dimensions of cloud governance:
 - Optimized useFetching hook to prevent race conditions
 - Memoized API calls to prevent unnecessary re-renders
 - Enhanced UI alignment and spacing
+- Added a collapsible production-style sidebar with the CloudAegis AI logo
+- Simplified navigation chrome by removing verbose sidebar descriptions
 
 ### Database (PostgreSQL 14-alpine)
 
@@ -112,7 +108,7 @@ CloudAegis AI combines three dimensions of cloud governance:
 
 ```sql
 -- Multi-account management
-cloud_accounts        # AWS accounts with role ARN & regions
+cloud_accounts        # AWS accounts with auth method, credential metadata, and regions
 
 -- Findings & Analysis
 findings              # Security findings + risk levels
@@ -219,7 +215,7 @@ Prevents blind auto-fixes by identifying:
 ## ⚙️ API Endpoints
 
 ### Connection
-- `POST /api/v1/connect-aws` - Connect AWS account via IAM role
+- `POST /api/v1/connect-aws` - Connect AWS account
 
 ### Scanning
 - `POST /api/v1/scan` - Scan account for findings
@@ -243,12 +239,12 @@ Prevents blind auto-fixes by identifying:
 ## 🔐 AWS Integration
 
 **Authentication Model:**
-- No hardcoded credentials
-- IAM role assumption via STS
+- No hardcoded credentials in the frontend
+- Current UI flow uses AWS access key ID + secret access key
+- Backend still supports role-based authentication for future/admin integrations
 - Multi-account + multi-region support
-- Temporary credentials with auto-refresh
 
-**Required IAM Permissions:**
+**Recommended IAM Permissions:**
 ```json
 {
   "Version": "2012-10-17",
@@ -435,14 +431,11 @@ cd frontend
 npm test
 ```
 
-## 📚 Testing with Mock Data
+## 📚 Current Product Notes
 
-All modules support mock AWS data for development:
-
-```python
-# Services detect when AWS credentials are unavailable
-# and return realistic mock responses for testing
-```
+- Dashboard and Findings are scan-history driven rather than purely live-list driven.
+- The selected account, selected scan, inventory, and scan history are cached client-side to reduce flicker during refresh and tab changes.
+- Security scans can be mapped against supported AWS CIS versions: `1.2.0`, `1.4.0`, and `3.0.0`.
 
 ## 🚀 Production Deployment
 
@@ -496,4 +489,3 @@ For issues, questions, or suggestions:
 ---
 
 **Built with ❤️ by DevSecOps teams who believe in safe, intelligent cloud transformation.**
-
