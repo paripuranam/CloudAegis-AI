@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14-alpine
+    container_name: cloudaegis-postgres
+    environment:
+      POSTGRES_DB: cloudaegis_db
+      POSTGRES_USER: cloudaegis
+      POSTGRES_PASSWORD: cloudaegis
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudaegis -d cloudaegis_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cloudaegis-backend
+    environment:
+      DATABASE_URL: postgresql://cloudaegis:cloudaegis@postgres:5432/cloudaegis_db
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      API_ENV: development
+      AWS_USE_MOCK_DATA: "false"
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-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}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-stepfun/step-3.5-flash:free}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      OPENROUTER_APP_NAME: ${OPENROUTER_APP_NAME:-CloudAegis AI}
+      OPENROUTER_SITE_URL: ${OPENROUTER_SITE_URL:-}
+      LOG_LEVEL: INFO
+      SECRET_KEY: dev-secret-key-change-in-production
+    ports:
+      - "8010:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: python run.py
+
+  # Frontend (Development)
+  frontend:
+    image: node:18-alpine
+    container_name: cloudaegis-frontend
+    working_dir: /app
+    ports:
+      - "3008:3000"
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8000
+    volumes:
+      - ./frontend:/app
+    ulimits:
+      nofile: 65536
+    command: sh -c "npm install && npm run dev -- --host"
+
+volumes:
+  postgres_data:
